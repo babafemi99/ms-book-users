@@ -1,36 +1,28 @@
 package users
 
 import (
+	"bookApi/datasources/postgres/user_db"
 	"bookApi/utils/msErrors"
-	"errors"
-	"fmt"
+	"context"
+	"time"
 )
 
-var userDB = make(map[int64]*User)
+var pql = user_db.Init()
 
 func (u *User) GetUser() *msErrors.RestErrors {
-	result := userDB[u.Id]
-	if result == nil {
-		return msErrors.NewNotFoundRequestError(fmt.Sprintf("user %d not found", u.Id), errors.New("not found"))
-
+	getErr := pql.QueryRow(context.Background(), "SELECT first_name, last_name, email FROM user_db WHERE id =$1", u.Id).Scan(&u.FirstName, &u.LastName, &u.Email)
+	if getErr != nil {
+		return msErrors.NewInternalServerError("Unable to fetch user", getErr)
 	}
-	u.Email = result.Email
-	u.Id = result.Id
-	u.FirstName = result.FirstName
-	u.LastName = result.LastName
-	u.DateCreated = result.DateCreated
-	u.DateUpdated = result.DateUpdated
 	return nil
 }
 
 func (u *User) Save() *msErrors.RestErrors {
-	current := userDB[u.Id]
-	if current != nil {
-		if current.Email == u.Email {
-			return msErrors.NewBadRequest(fmt.Sprint("email already exists"), errors.New("bad request"))
-		}
-		return msErrors.NewBadRequest(fmt.Sprintf("user %d already exists", u.Id), errors.New("bad request"))
+	u.DateCreated = time.Now().UTC()
+	u.DateUpdated = time.Now().UTC()
+	_, insertErr := pql.Exec(context.Background(), "INSERT INTO user_db (id, first_name, last_name, email, data_created, date_updated) VALUES($1, $2, $3, $4, $5, $6)", u.Id, u.FirstName, u.LastName, u.Email, u.DateCreated, u.DateUpdated)
+	if insertErr != nil {
+		return msErrors.NewInternalServerError("Error inserting", insertErr)
 	}
-	userDB[u.Id] = u
 	return nil
 }
