@@ -11,6 +11,10 @@ import (
 	"strconv"
 )
 
+var (
+	userService = services.NewUserService()
+)
+
 func CreateUser(c *gin.Context) {
 	var user users.User
 	err := c.ShouldBindJSON(&user)
@@ -20,12 +24,12 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 	fmt.Println(user)
-	result, createErr := services.CreateUser(&user)
+	result, createErr := userService.CreateUser(&user)
 	if createErr != nil {
 		c.JSON(createErr.Status, createErr)
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, result.Marshall(c.GetHeader("X-Public") == "true"))
 }
 func GetUser(c *gin.Context) {
 	id, idErr := getUserId(c.Param("user_id"))
@@ -33,12 +37,12 @@ func GetUser(c *gin.Context) {
 		c.JSON(idErr.Status, idErr)
 		return
 	}
-	user, errors := services.GetUser(id)
+	user, errors := userService.GetUser(id)
 	if errors != nil {
 		c.JSON(errors.Status, errors)
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, user.Marshall(c.GetHeader("X-Public") == "true"))
 }
 func FindUser(c *gin.Context) {
 
@@ -46,12 +50,12 @@ func FindUser(c *gin.Context) {
 func Search(c *gin.Context) {
 	status := c.Query("status")
 	fmt.Println(status)
-	StatusUser, err := services.Search(status)
+	StatusUser, err := userService.Search(status)
 	if err != nil {
 		c.JSON(err.Status, err)
 		return
 	}
-	c.JSON(http.StatusOK, StatusUser)
+	c.JSON(http.StatusOK, StatusUser.Marshall(c.GetHeader("X-Public") == "true"))
 }
 func EditUser(c *gin.Context) {
 	var user users.User
@@ -68,7 +72,7 @@ func EditUser(c *gin.Context) {
 	}
 	user.Id = id
 	fmt.Println(&user)
-	updateErr := services.UpdateUser(&user)
+	updateErr := userService.UpdateUser(&user)
 	if updateErr != nil {
 		c.JSON(updateErr.Status, updateErr)
 		return
@@ -91,7 +95,7 @@ func PatchUser(c *gin.Context) {
 		return
 	}
 	user.Id = id
-	patchErr := services.PatchUser(&user)
+	patchErr := userService.PatchUser(&user)
 	if patchErr != nil {
 		c.JSON(patchErr.Status, patchErr)
 		return
@@ -104,7 +108,7 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(idErr.Status, idErr)
 		return
 	}
-	errors := services.Delete(id)
+	errors := userService.Delete(id)
 	if errors != nil {
 		c.JSON(errors.Status, errors)
 		return

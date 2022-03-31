@@ -2,6 +2,7 @@ package users
 
 import (
 	"bookApi/datasources/postgres/user_db"
+	"bookApi/logger"
 	"bookApi/utils/msErrors"
 	"context"
 	"errors"
@@ -21,6 +22,7 @@ const (
 func (u *User) GetUser() *msErrors.RestErrors {
 	getErr := pql.QueryRow(context.Background(), selectStatementById, u.Id).Scan(&u.FirstName, &u.LastName, &u.Email, &u.Status)
 	if getErr != nil {
+		logger.Error("Error Getting user", getErr)
 		return msErrors.NewInternalServerError("Unable to fetch user", getErr)
 	}
 	return nil
@@ -29,6 +31,7 @@ func (u *User) GetUser() *msErrors.RestErrors {
 func (u *User) Save() *msErrors.RestErrors {
 	_, insertErr := pql.Exec(context.Background(), insertStatement, u.Id, u.FirstName, u.LastName, u.Email, u.Password, u.DateCreated, u.DateUpdated, u.Status)
 	if insertErr != nil {
+		logger.Error("Error saving user", insertErr)
 		return msErrors.NewInternalServerError("Error inserting", insertErr)
 	}
 	return nil
@@ -36,6 +39,7 @@ func (u *User) Save() *msErrors.RestErrors {
 func (u *User) UpdateUser() *msErrors.RestErrors {
 	_, UpdateErr := pql.Exec(context.Background(), updateStatement, u.FirstName, u.LastName, u.Email, u.DateUpdated, u.Id)
 	if UpdateErr != nil {
+		logger.Error("Error updating user", UpdateErr)
 		return msErrors.NewInternalServerError("Error inserting", UpdateErr)
 	}
 	return nil
@@ -43,12 +47,13 @@ func (u *User) UpdateUser() *msErrors.RestErrors {
 func (u *User) DeleteUser() *msErrors.RestErrors {
 	_, getErr := pql.Exec(context.Background(), deleteStatement, u.Id)
 	if getErr != nil {
+		logger.Error("Error deleting user", getErr)
 		return msErrors.NewInternalServerError("Unable to delete user", getErr)
 	}
 	return nil
 }
 
-func (u *User) FindByStatus(status string) ([]*User, *msErrors.RestErrors) {
+func (u *User) FindByStatus(status string) (UserList, *msErrors.RestErrors) {
 	query, getErr := pql.Query(context.Background(), selectStatementByStatus, status)
 	if getErr != nil {
 		return nil, msErrors.NewNotFoundRequestError("Unable to fetch users by status", getErr)
@@ -59,6 +64,7 @@ func (u *User) FindByStatus(status string) ([]*User, *msErrors.RestErrors) {
 		var user User
 		queryErr := query.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.Status)
 		if queryErr != nil {
+			logger.Error("Error finding by status", queryErr)
 			return nil, msErrors.NewInternalServerError("unable to scan", queryErr)
 		}
 		results = append(results, &user)

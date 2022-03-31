@@ -2,8 +2,8 @@ package app
 
 import (
 	"bookApi/datasources/postgres/user_db"
+	logger "bookApi/logger"
 	"github.com/gin-gonic/gin"
-	"log"
 )
 
 var (
@@ -12,7 +12,11 @@ var (
 
 func StartApp() {
 	user_db.Init()
-	log.Println("run succefully")
+	logs := logger.GetLogger()
+	logs.Info("About to start application")
 	mapUrl()
-	router.Run(":8080")
+	err := router.Run(":8080")
+	if err != nil {
+		panic(err)
+	}
 }

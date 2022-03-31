@@ -22,6 +22,8 @@ type User struct {
 	DateUpdated time.Time `json:"-"`
 }
 
+type UserList []*User
+
 func (u *User) Validate() *msErrors.RestErrors {
 	u.Email = strings.TrimSpace(strings.ToLower(u.Email))
 	validate := validator.New()

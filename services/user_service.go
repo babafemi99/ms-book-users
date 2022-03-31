@@ -8,7 +8,23 @@ import (
 	"time"
 )
 
-func CreateUser(user *users.User) (*users.User, *msErrors.RestErrors) {
+type userService struct {
+}
+
+type userServiceInterface interface {
+	CreateUser(user *users.User) (*users.User, *msErrors.RestErrors)
+	GetUser(id int64) (*users.User, *msErrors.RestErrors)
+	UpdateUser(u *users.User) *msErrors.RestErrors
+	PatchUser(u *users.User) *msErrors.RestErrors
+	Delete(id int64) *msErrors.RestErrors
+	Search(status string) (users.UserList, *msErrors.RestErrors)
+}
+
+func NewUserService() userServiceInterface {
+	return &userService{}
+}
+
+func (usrv *userService) CreateUser(user *users.User) (*users.User, *msErrors.RestErrors) {
 	validateError := user.Validate()
 	if validateError != nil {
 		return nil, validateError
@@ -24,7 +40,7 @@ func CreateUser(user *users.User) (*users.User, *msErrors.RestErrors) {
 	return user, nil
 }
 
-func GetUser(id int64) (*users.User, *msErrors.RestErrors) {
+func (usrv *userService) GetUser(id int64) (*users.User, *msErrors.RestErrors) {
 	res := &users.User{Id: id}
 	err := res.GetUser()
 	if err != nil {
@@ -33,9 +49,9 @@ func GetUser(id int64) (*users.User, *msErrors.RestErrors) {
 	return res, nil
 }
 
-func UpdateUser(u *users.User) *msErrors.RestErrors {
+func (usrv *userService) UpdateUser(u *users.User) *msErrors.RestErrors {
 	res := &users.User{Id: u.Id}
-	_, getErr := GetUser(u.Id)
+	_, getErr := usrv.GetUser(u.Id)
 	if getErr != nil {
 		return getErr
 	}
@@ -52,9 +68,9 @@ func UpdateUser(u *users.User) *msErrors.RestErrors {
 	return nil
 }
 
-func PatchUser(u *users.User) *msErrors.RestErrors {
+func (usrv *userService) PatchUser(u *users.User) *msErrors.RestErrors {
 	fmt.Println("first u:", u)
-	mainUser, getErr := GetUser(u.Id)
+	mainUser, getErr := usrv.GetUser(u.Id)
 	if getErr != nil {
 		return getErr
 	}
@@ -78,7 +94,7 @@ func PatchUser(u *users.User) *msErrors.RestErrors {
 	return nil
 }
 
-func Delete(id int64) *msErrors.RestErrors {
+func (usrv *userService) Delete(id int64) *msErrors.RestErrors {
 	res := &users.User{
 		Id: id,
 	}
@@ -88,7 +104,8 @@ func Delete(id int64) *msErrors.RestErrors {
 	}
 	return nil
 }
-func Search(status string) ([]*users.User, *msErrors.RestErrors) {
+
+func (usrv *userService) Search(status string) (users.UserList, *msErrors.RestErrors) {
 	dao := &users.User{}
 	return dao.FindByStatus(status)
 }
