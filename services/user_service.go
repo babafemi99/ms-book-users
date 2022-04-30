@@ -4,24 +4,49 @@ import (
 	"bookApi/domain/users"
 	"bookApi/utils/cyrpto_utils"
 	"bookApi/utils/msErrors"
-	"fmt"
+	"errors"
 	"time"
 )
 
 type userService struct {
 }
 
-type userServiceInterface interface {
+type UserServiceInterface interface {
 	CreateUser(user *users.User) (*users.User, *msErrors.RestErrors)
 	GetUser(id int64) (*users.User, *msErrors.RestErrors)
+	GetUserEmail(email string) (*users.User, *msErrors.RestErrors)
 	UpdateUser(u *users.User) *msErrors.RestErrors
 	PatchUser(u *users.User) *msErrors.RestErrors
 	Delete(id int64) *msErrors.RestErrors
 	Search(status string) (users.UserList, *msErrors.RestErrors)
+	FindByCredentials(login *users.UserLogin) (*users.User, *msErrors.RestErrors)
 }
 
-func NewUserService() userServiceInterface {
+func NewUserService() UserServiceInterface {
 	return &userService{}
+}
+
+func (usrv *userService) FindByCredentials(login *users.UserLogin) (*users.User, *msErrors.RestErrors) {
+	vErr := login.Validate()
+	if vErr != nil {
+		return nil, vErr
+	}
+
+	user, getErr := usrv.GetUserEmail(login.Email)
+	if getErr != nil {
+		return nil, msErrors.NewNotFoundRequestError("Invalid credentials", errors.New("try again"))
+	}
+
+	res := &users.User{
+		Email:    login.Email,
+		Password: login.Password,
+	}
+	hash := cyrpto_utils.CheckPasswordHash(res.Password, user.Password)
+	if !hash {
+		return nil, msErrors.NewNotFoundRequestError("Invalid credentials", errors.New("try again"))
+	}
+
+	return user, nil
 }
 
 func (usrv *userService) CreateUser(user *users.User) (*users.User, *msErrors.RestErrors) {
@@ -31,8 +56,12 @@ func (usrv *userService) CreateUser(user *users.User) (*users.User, *msErrors.Re
 	}
 	user.DateCreated = time.Now().UTC()
 	user.DateUpdated = time.Now().UTC()
-	user.Password = cyrpto_utils.GetMd5(user.Password)
 	user.Status = users.StatusActive
+	password, err2 := cyrpto_utils.HashPassword(user.Password)
+	if err2 != nil {
+		panic("can't save ")
+	}
+	user.Password = password
 	err := user.Save()
 	if err != nil {
 		return nil, err
@@ -49,18 +78,25 @@ func (usrv *userService) GetUser(id int64) (*users.User, *msErrors.RestErrors) {
 	return res, nil
 }
 
+func (usrv *userService) GetUserEmail(email string) (*users.User, *msErrors.RestErrors) {
+	res := &users.User{Email: email}
+	err := res.GetUserByEmail()
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (usrv *userService) UpdateUser(u *users.User) *msErrors.RestErrors {
 	res := &users.User{Id: u.Id}
 	_, getErr := usrv.GetUser(u.Id)
 	if getErr != nil {
 		return getErr
 	}
-	fmt.Println(u)
 	res.FirstName = u.FirstName
 	res.LastName = u.LastName
 	res.Email = u.Email
 	res.DateUpdated = time.Now()
-	fmt.Println(res)
 	updateErr := res.UpdateUser()
 	if updateErr != nil {
 		return updateErr
@@ -69,7 +105,6 @@ func (usrv *userService) UpdateUser(u *users.User) *msErrors.RestErrors {
 }
 
 func (usrv *userService) PatchUser(u *users.User) *msErrors.RestErrors {
-	fmt.Println("first u:", u)
 	mainUser, getErr := usrv.GetUser(u.Id)
 	if getErr != nil {
 		return getErr
@@ -83,9 +118,7 @@ func (usrv *userService) PatchUser(u *users.User) *msErrors.RestErrors {
 	if u.Email != "" {
 		mainUser.Email = u.Email
 	}
-	fmt.Println("second u:", u)
 	mainUser.DateUpdated = time.Now()
-	fmt.Println("third u:", mainUser)
 	updateErr := mainUser.UpdateUser()
 	if updateErr != nil {
 		return updateErr

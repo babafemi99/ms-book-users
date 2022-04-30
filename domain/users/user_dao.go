@@ -13,6 +13,7 @@ var pql = user_db.Init()
 
 const (
 	selectStatementById     = "SELECT first_name, last_name, email, status FROM user_db WHERE id =$1"
+	selectStatementByEmail  = "SELECT id, first_name, last_name, email, status, password FROM user_db WHERE email =$1;"
 	selectStatementByStatus = "SELECT id, first_name, last_name, email, status FROM user_db WHERE status =$1"
 	insertStatement         = "INSERT INTO user_db (id, first_name, last_name, email, password, data_created, date_updated, status) VALUES($1, $2, $3, $4, $5, $6, $7, $8)"
 	updateStatement         = "UPDATE user_db SET first_name = $1, last_name = $2, email =$3, date_updated = $4 WHERE id = $5;"
@@ -21,6 +22,15 @@ const (
 
 func (u *User) GetUser() *msErrors.RestErrors {
 	getErr := pql.QueryRow(context.Background(), selectStatementById, u.Id).Scan(&u.FirstName, &u.LastName, &u.Email, &u.Status)
+	if getErr != nil {
+		logger.Error("Error Getting user", getErr)
+		return msErrors.NewInternalServerError("Unable to fetch user", getErr)
+	}
+	return nil
+}
+
+func (u *User) GetUserByEmail() *msErrors.RestErrors {
+	getErr := pql.QueryRow(context.Background(), selectStatementByEmail, u.Email).Scan(&u.Id, &u.FirstName, &u.LastName, &u.Email, &u.Status, &u.Password)
 	if getErr != nil {
 		logger.Error("Error Getting user", getErr)
 		return msErrors.NewInternalServerError("Unable to fetch user", getErr)

@@ -3,6 +3,7 @@ package user_controller
 import (
 	"bookApi/domain/users"
 	"bookApi/services"
+	"bookApi/utils/cyrpto_utils"
 	"bookApi/utils/msErrors"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -23,13 +24,14 @@ func CreateUser(c *gin.Context) {
 		c.JSON(restErr.Status, restErr)
 		return
 	}
-	fmt.Println(user)
-	result, createErr := userService.CreateUser(&user)
+	_, createErr := userService.CreateUser(&user)
 	if createErr != nil {
 		c.JSON(createErr.Status, createErr)
 		return
 	}
-	c.JSON(http.StatusOK, result.Marshall(c.GetHeader("X-Public") == "true"))
+	token := cyrpto_utils.GetJWTToken(user.Id)
+	c.Header("Authorization", fmt.Sprintf("Bearer %s", token))
+	c.JSON(http.StatusOK, map[string]string{"token": token})
 }
 func GetUser(c *gin.Context) {
 	id, idErr := getUserId(c.Param("user_id"))
@@ -49,7 +51,6 @@ func FindUser(c *gin.Context) {
 }
 func Search(c *gin.Context) {
 	status := c.Query("status")
-	fmt.Println(status)
 	StatusUser, err := userService.Search(status)
 	if err != nil {
 		c.JSON(err.Status, err)
@@ -71,7 +72,6 @@ func EditUser(c *gin.Context) {
 		return
 	}
 	user.Id = id
-	fmt.Println(&user)
 	updateErr := userService.UpdateUser(&user)
 	if updateErr != nil {
 		c.JSON(updateErr.Status, updateErr)
@@ -114,6 +114,24 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, map[string]string{"result": "Successful"})
+}
+
+func Login(c *gin.Context) {
+	var request users.UserLogin
+	err := c.ShouldBindJSON(&request)
+	if err != nil {
+		restErr := msErrors.NewBadRequest("invalid json body", err)
+		c.JSON(restErr.Status, restErr)
+		return
+	}
+	user, credErr := userService.FindByCredentials(&request)
+	if credErr != nil {
+		c.JSON(credErr.Status, credErr)
+		return
+	}
+	token := cyrpto_utils.GetJWTToken(user.Id)
+	c.Request.Header.Add("authorization", fmt.Sprintf("Bearer %s", token))
+	c.JSON(http.StatusOK, user)
 }
 
 func getUserId(idParam string) (int64, *msErrors.RestErrors) {
